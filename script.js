@@ -564,10 +564,17 @@
         const onOrientation = (e) => {
           try {
             let heading = null;
-            if (typeof e.webkitCompassHeading === "number") {
+            let isAbsolute = e.absolute === true;
+            if (typeof e.webkitCompassHeading === "number" && Number.isFinite(e.webkitCompassHeading)) {
               heading = e.webkitCompassHeading;
-            } else if (e.absolute === true && typeof e.alpha === "number") {
-              heading = (360 - e.alpha) % 360;
+              isAbsolute = true;
+            } else if (typeof e.alpha === "number" && Number.isFinite(e.alpha)) {
+              if (isAbsolute) {
+                heading = (360 - e.alpha) % 360;
+                this._hasAbsolute = true;
+              } else if (!this._hasAbsolute) {
+                heading = (360 - e.alpha) % 360;
+              }
             }
 
             if (heading != null) {
@@ -587,6 +594,7 @@
             window.removeEventListener("pointerdown", tryPermission);
             window.removeEventListener("keydown", tryPermission);
             window.addEventListener("deviceorientation", onOrientation, true);
+            window.addEventListener("deviceorientationabsolute", onOrientation, true);
           } catch (e) { /* non-fatal */ }
         };
 
@@ -601,7 +609,12 @@
                   this.enableFallback("Compass permission was denied. Use the manual heading slider.");
                 }
               })
-              .catch(() => { bind(); this.setMode("calibrating"); });
+              .catch(() => {
+                // iOS: requestPermission must be triggered from a user gesture.
+                window.addEventListener("pointerdown", tryPermission, { once: true });
+                window.addEventListener("keydown", tryPermission, { once: true });
+                this.setMode("calibrating", "Tap anywhere to enable the compass sensor.");
+              });
           } catch (e) {
             // iOS Safari: permission must be requested from a user gesture.
             window.addEventListener("pointerdown", tryPermission, { once: true });
