@@ -11,6 +11,8 @@
   const EARTH_RADIUS_KM = 6371.0088;
   const ALADHAN_METHOD = 4; // Umm Al-Qura, Makkah
 
+  const FETCH_TIMEOUT = 10000; // ms per request
+
   /* ============================== Helpers ============================ */
   const toRad = (d) => (d * Math.PI) / 180;
   const toDeg = (r) => (r * 180) / Math.PI;
@@ -35,8 +37,70 @@
   const fmtAccuracy = (m) => (m == null ? "--" : `±${Math.round(m)} m`);
 
   /* Detect whether the project is opened via the file:// protocol. */
-  const runningViaFile = () =>
-    typeof window.location !== "undefined" && window.location.protocol === "file:";
+  const runningViaFile = () => {
+    try {
+      return typeof window.location !== "undefined" && window.location.protocol === "file:";
+    } catch (e) {
+      return false;
+    }
+  };
+
+  /* Online detection with safe guards. */
+  const isOnline = () => {
+    try {
+      return typeof navigator !== "undefined" && navigator.onLine;
+    } catch (e) {
+      return true;
+    }
+  };
+
+  /* Validate a numeric coordinate. */
+  const isFiniteNumber = (v) => typeof v === "number" && Number.isFinite(v);
+  const isValidLat = (v) => isFiniteNumber(v) && v >= -90 && v <= 90;
+  const isValidLon = (v) => isFiniteNumber(v) && v >= -180 && v <= 180;
+  const isValidCoords = (lat, lon) => isValidLat(lat) && isValidLon(lon);
+
+  const isPlainObject = (v) => !!v && typeof v === "object" && !Array.isArray(v);
+
+  /* Safe property reader: never throws on undefined. */
+  const prop = (obj, key) => (isPlainObject(obj) ? obj[key] : undefined);
+
+  /* ------------------------------------------------------------------
+     Robust fetch wrapper.
+     - Always resolves (never throws).
+     - Enforces a timeout via AbortController.
+     - Returns { ok:true, data } or { ok:false, error, status }.
+     - Any CORS / network / HTTP failure simply yields ok:false.
+     ------------------------------------------------------------------ */
+  const fetchJSON = async (url, { timeout = FETCH_TIMEOUT, headers = {}, method = "GET" } = {}) => {
+    let controller = null;
+    let timer = null;
+    try {
+      if (typeof AbortController !== "undefined") {
+        controller = new AbortController();
+        timer = setTimeout(() => controller.abort(), timeout);
+      }
+      const res = await fetch(url, {
+        method,
+        headers,
+        signal: controller ? controller.signal : undefined,
+      });
+      if (!res || !res.ok) {
+        return { ok: false, status: res ? res.status : 0, error: new Error(`HTTP ${res ? res.status : "failed"}`) };
+      }
+      let data;
+      try {
+        data = await res.json();
+      } catch (e) {
+        return { ok: false, status: res.status, error: new Error("Invalid JSON response") };
+      }
+      return { ok: true, status: res.status, data };
+    } catch (err) {
+      return { ok: false, status: 0, error: err };
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  };
 
   /* ============================ Application =========================== */
   const App = {
@@ -56,8 +120,7 @@
       try {
         if (
           !this.location ||
-          typeof this.location.lat !== "number" ||
-          typeof this.location.lon !== "number"
+          !isValidCoords(this.location.lat, this.location.lon)
         ) {
           throw new Error("Invalid location");
         }
@@ -69,6 +132,7 @@
           badge.innerHTML = '<i class="fa-solid fa-circle-check" aria-hidden="true"></i> Locked';
         }
 
+        // Reverse geocoding is non-fatal; fire and forget.
         try {
           ReverseGeocode.lookup(lat, lon);
         } catch (e) { /* non-fatal */ }
@@ -77,11 +141,11 @@
         App.distanceKm = QiblaMath.distanceKm(lat, lon);
 
         const bearingEl = $("#bearingValue");
-        if (bearingEl) bearingEl.textContent = `${Math.round(App.qiblaBearing)}°`;
+        if (bearingEl && isFiniteNumber(App.qiblaBearing)) bearingEl.textContent = `${Math.round(App.qiblaBearing)}°`;
         const distEl = $("#distanceValue");
         if (distEl) distEl.textContent = fmtDistance(App.distanceKm);
         const faceEl = $("#faceDirection");
-        if (faceEl) faceEl.textContent = QiblaMath.cardinal(App.qiblaBearing);
+        if (faceEl && isFiniteNumber(App.qiblaBearing)) faceEl.textContent = QiblaMath.cardinal(App.qiblaBearing);
 
         if (App.state.qiblaApiUsed) {
           Toast.show("Qibla direction synced with AlAdhan", "info", 2000);
@@ -143,35 +207,37 @@
   };
 
   /* ===================== file:// protocol warning ===================== */
+  /* Non-fatal: warns the user but never blocks the application. */
   const showFileProtocolWarning = () => {
     const banner = $("#statusBanner");
-    if (!banner) return;
-    banner.hidden = false;
-    banner.className = "status-banner status-banner--danger";
-    banner.innerHTML = `
-      <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
-      <span><strong>Please run this project using Live Server or localhost.</strong>
-      Opening via file:// can break the map, compass and online prayer times.</span>
-      <button class="banner-dismiss" type="button" aria-label="Dismiss warning">&times;</button>`;
-    const dismiss = banner.querySelector(".banner-dismiss");
-    if (dismiss) {
-      dismiss.addEventListener("click", () => { banner.hidden = true; });
+    if (banner) {
+      banner.hidden = false;
+      banner.className = "status-banner status-banner--warn";
+      banner.innerHTML = `
+        <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+        <span><strong>You opened this file directly (file://).</strong>
+        Some online features (map, prayer times) may be limited. Run it on
+        Live Server, localhost, or GitHub Pages for the full experience.</span>
+        <button class="banner-dismiss" type="button" aria-label="Dismiss warning">&times;</button>`;
+      const dismiss = banner.querySelector(".banner-dismiss");
+      if (dismiss) dismiss.addEventListener("click", () => { banner.hidden = true; });
     }
-    Toast.show("Please run this project using Live Server or localhost.", "error", 5000);
+    Toast.show("Running via file:// — some online services may be limited.", "info", 5000);
   };
 
   /* =========================== Offline detect ========================= */
-  const isOnline = () => typeof navigator !== "undefined" && navigator.onLine;
-
-  window.addEventListener("online", () => {
+  const handleOnline = () => {
     setBanner("", "");
     Toast.show("You are back online", "success");
     if (App.location) App.refreshAll();
-  });
-  window.addEventListener("offline", () => {
+  };
+  const handleOffline = () => {
     setBanner("Network offline — some services are unavailable.", "warn");
     Toast.show("You are offline", "error");
-  });
+  };
+
+  window.addEventListener("online", handleOnline);
+  window.addEventListener("offline", handleOffline);
 
   /* ============================= Theme ================================ */
   const Theme = {
@@ -179,16 +245,18 @@
     init() {
       let saved = null;
       try { saved = localStorage.getItem(this.KEY); } catch (e) { saved = null; }
-      const prefersDark =
-        window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+      let prefersDark = false;
+      try {
+        prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+      } catch (e) { prefersDark = false; }
       const theme = saved || (prefersDark ? "dark" : "light");
-      document.documentElement.dataset.theme = theme;
+      if (document.documentElement) document.documentElement.dataset.theme = theme;
       this.syncIcon();
     },
     toggle() {
-      const current = document.documentElement.dataset.theme;
+      const current = document.documentElement ? document.documentElement.dataset.theme : "dark";
       const next = current === "dark" ? "light" : "dark";
-      document.documentElement.dataset.theme = next;
+      if (document.documentElement) document.documentElement.dataset.theme = next;
       try { localStorage.setItem(this.KEY, next); } catch (e) { /* storage may be blocked */ }
       this.syncIcon();
       Toast.show(next === "dark" ? "Dark mode enabled" : "Light mode enabled", "info", 1600);
@@ -196,7 +264,7 @@
     syncIcon() {
       const btn = $("#themeBtn");
       if (!btn) return;
-      const dark = document.documentElement.dataset.theme === "dark";
+      const dark = document.documentElement ? document.documentElement.dataset.theme === "dark" : false;
       btn.innerHTML =
         dark
           ? '<i class="fa-solid fa-sun" aria-hidden="true"></i>'
@@ -205,24 +273,35 @@
   };
 
   /* ===================== IP fallback geolocation ====================== */
+  /* Several CORS-friendly endpoints; tries each in order and stops at the
+     first valid result. Never throws. */
   const IPLocation = {
     async locate() {
-      if (!isOnline() || typeof fetch !== "function") return null;
+      if (typeof fetch !== "function" || !isOnline()) return null;
       const endpoints = [
-        "https://ipapi.co/json/",
-        "https://ipinfo.io/json",
+        { url: "https://ipwho.is/", parse: (d) => ({ lat: Number(prop(d, "latitude")), lon: Number(prop(d, "longitude")) }) },
+        { url: "https://ipapi.co/json/", parse: (d) => ({ lat: Number(prop(d, "latitude")), lon: Number(prop(d, "longitude")) }) },
+        {
+          url: "https://ipinfo.io/json",
+          parse: (d) => {
+            const loc = prop(d, "loc");
+            if (typeof loc !== "string" || !loc.includes(",")) return null;
+            const [lat, lon] = loc.split(",").map(Number);
+            return { lat, lon };
+          },
+        },
+        {
+          url: "https://ip-api.com/json",
+          parse: (d) => (prop(d, "status") === "success" ? { lat: Number(prop(d, "lat")), lon: Number(prop(d, "lon")) } : null),
+        },
       ];
-      for (const url of endpoints) {
-        try {
-          const res = await fetch(url, { method: "GET" });
-          if (!res.ok) continue;
-          const data = await res.json();
-          const lat = parseFloat(data.latitude ?? (data.loc ? data.loc.split(",")[0] : null));
-          const lon = parseFloat(data.longitude ?? (data.loc ? data.loc.split(",")[1] : null));
-          if (Number.isFinite(lat) && Number.isFinite(lon)) {
-            return { lat, lon, accuracy: 5000, ipBased: true };
-          }
-        } catch (e) { /* try the next endpoint */ }
+      for (const ep of endpoints) {
+        const result = await fetchJSON(ep.url);
+        if (!result.ok) continue; // CORS / network / HTTP failure → next
+        const parsed = ep.parse(result.data);
+        if (parsed && isValidCoords(parsed.lat, parsed.lon)) {
+          return { lat: parsed.lat, lon: parsed.lon, accuracy: 5000, ipBased: true };
+        }
       }
       return null;
     },
@@ -251,8 +330,13 @@
             this.isRequesting = false;
             if (refreshBtn) refreshBtn.classList.remove("is-spinning");
             if (locBtn) locBtn.classList.remove("is-spinning");
-            const { latitude, longitude, accuracy } = pos.coords;
-            App.location = { lat: latitude, lon: longitude, accuracy: accuracy || null };
+            const coords = pos && pos.coords;
+            const { latitude, longitude, accuracy } = coords || {};
+            if (!isValidCoords(latitude, longitude)) {
+              this.handleError({ code: 2 });
+              return;
+            }
+            App.location = { lat: latitude, lon: longitude, accuracy: isFiniteNumber(accuracy) ? accuracy : null };
             this.render();
             this.renderCoords();
             App.onLocationKnown().catch(() => {});
@@ -272,35 +356,37 @@
     },
 
     async handleError(err) {
+      const code = err && err.code;
       const codes = {
         1: { title: "Permission Denied", msg: "Location access was blocked. Enable location permissions in your browser settings, then tap Refresh." },
         2: { title: "Location Unavailable", msg: "GPS could not determine your position. Try moving to an open area with a clear sky." },
         3: { title: "GPS Timed Out", msg: "The request timed out. Check that GPS / location services are enabled on your device." },
       };
-      const info = codes[err.code] || { title: "Location Error", msg: err.message || "An unknown error occurred." };
+      const info = codes[code] || { title: "Location Error", msg: (err && err.message) || "An unknown error occurred." };
       this.setStatus("error", info.title);
 
-      try {
-        const fallback = await IPLocation.locate();
-        if (fallback) {
-          this.useIpFallback(fallback);
-          return;
-        }
-      } catch (e) { /* continue to the error card */ }
+      // Fall back to IP geolocation (CORS-safe, wrapped, never throws).
+      const fallback = await IPLocation.locate();
+      if (fallback && isValidCoords(fallback.lat, fallback.lon)) {
+        this.useIpFallback(fallback);
+        return;
+      }
 
       this.renderEmpty();
       const card = buildErrorCard(info.title, info.msg, () => this.request());
       const slot = $("#locationError");
       if (slot) { slot.innerHTML = ""; slot.appendChild(card); }
       Toast.show(info.title, "error");
-      if (MapModule.map) MapModule.map.setView([KAABA.lat, KAABA.lon], 3);
+      if (MapModule.map) {
+        try { MapModule.map.setView([KAABA.lat, KAABA.lon], 3); } catch (e) { /* non-fatal */ }
+      }
     },
 
     async fail(msg) {
       this.setStatus("error", "Unsupported");
       try {
         const fallback = await IPLocation.locate();
-        if (fallback) {
+        if (fallback && isValidCoords(fallback.lat, fallback.lon)) {
           this.useIpFallback(fallback);
           return;
         }
@@ -375,26 +461,27 @@
           if (placeEl) placeEl.textContent = "Offline — place name unavailable";
           return;
         }
-        const res = await fetch(
+        const result = await fetchJSON(
           `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&zoom=10&addressdetails=1`,
-          { headers: { "Accept-Language": "en" } }
+          { headers: { "Accept-Language": "en" }, timeout: 12000 }
         );
-        if (!res.ok) throw new Error("Nominatim failed");
-        const data = await res.json();
-        if (!data || typeof data !== "object") throw new Error("Bad response");
-        const addr = data.address || {};
+        if (!result.ok) throw new Error("Nominatim failed");
+        const data = result.data;
+        if (!isPlainObject(data)) throw new Error("Bad response");
+        const addr = isPlainObject(prop(data, "address")) ? prop(data, "address") : {};
         const city =
-          addr.city || addr.town || addr.village || addr.county || addr.state || "";
-        const country = addr.country || "";
+          prop(addr, "city") || prop(addr, "town") || prop(addr, "village") || prop(addr, "county") || prop(addr, "state") || "";
+        const country = prop(addr, "country") || "";
+        const displayName = prop(data, "display_name") || "";
         const name =
           [city, country].filter(Boolean).join(", ") ||
-          (data.display_name || "").split(",").slice(0, 2).join(",");
+          (typeof displayName === "string" ? displayName.split(",").slice(0, 2).join(",") : "");
         App.state.reverseGeocoded = true;
         App.state.placeName = name;
         const placeEl = $("#placeValue");
         const cityEl = $("#cityValue");
         const countryEl = $("#countryValue");
-        if (placeEl) placeEl.textContent = name;
+        if (placeEl) placeEl.textContent = name || "Unknown place";
         if (cityEl) cityEl.textContent = city || "--";
         if (countryEl) countryEl.textContent = country || "--";
       } catch (e) {
@@ -432,16 +519,15 @@
   const QiblaApi = {
     async fetchOrCompute(lat, lon) {
       if (isOnline()) {
-        try {
-          const res = await fetch(`https://api.aladhan.com/v1/qibla/${lat}/${lon}`);
-          if (res.ok) {
-            const data = await res.json();
-            if (data && data.code === 200 && data.data && data.data.direction != null) {
-              App.state.qiblaApiUsed = true;
-              return normalizeHeading(Number(data.data.direction));
-            }
+        const result = await fetchJSON(`https://api.aladhan.com/v1/qibla/${lat}/${lon}`);
+        if (result.ok && isPlainObject(result.data)) {
+          const d = prop(result.data, "data");
+          const direction = isPlainObject(d) ? prop(d, "direction") : null;
+          if (result.data.code === 200 && isFiniteNumber(Number(direction))) {
+            App.state.qiblaApiUsed = true;
+            return normalizeHeading(Number(direction));
           }
-        } catch (e) { /* fall back below */ }
+        }
       }
       App.state.qiblaApiUsed = false;
       return QiblaMath.bearing(lat, lon);
@@ -532,8 +618,8 @@
 
         const qiblaEl = $("#qiblaAngle");
         const fullQiblaEl = $("#fullQiblaAngle");
-        if (qiblaEl) qiblaEl.textContent = `${Math.round(q)}°`;
-        if (fullQiblaEl) fullQiblaEl.textContent = `${Math.round(q)}°`;
+        if (qiblaEl && isFiniteNumber(q)) qiblaEl.textContent = `${Math.round(q)}°`;
+        if (fullQiblaEl && isFiniteNumber(q)) fullQiblaEl.textContent = `${Math.round(q)}°`;
       } catch (e) { /* non-fatal */ }
     },
 
@@ -649,7 +735,8 @@
         const slider = $("#headingSlider");
         if (!slider) return;
         const sync = () => {
-          App.deviceHeading = normalizeHeading(parseFloat(slider.value) || 0);
+          const value = parseFloat(slider.value);
+          App.deviceHeading = normalizeHeading(isFiniteNumber(value) ? value : 0);
           const val = $("#headingSliderVal");
           if (val) val.textContent = `${Math.round(App.deviceHeading)}°`;
           Compass.scheduleRender();
@@ -666,26 +753,30 @@
     layers: {},
 
     init() {
-      if (!window.L) {
+      if (typeof window.L === "undefined" || !window.L) {
         setBanner("Map library failed to load — map unavailable.", "warn");
         return;
       }
       if (this.map) return;
+      try {
+        this.map = L.map("map", {
+          zoomControl: true,
+          attributionControl: true,
+        }).setView([KAABA.lat, KAABA.lon], 3);
 
-      this.map = L.map("map", {
-        zoomControl: true,
-        attributionControl: true,
-      }).setView([KAABA.lat, KAABA.lon], 3);
-
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        maxZoom: 19,
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      }).addTo(this.map);
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          maxZoom: 19,
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        }).addTo(this.map);
+      } catch (e) {
+        setBanner("Map could not be initialised — map unavailable.", "warn");
+        this.map = null;
+      }
     },
 
     render() {
       try {
-        if (!this.map || !App.location) return;
+        if (!this.map || !App.location || !isValidCoords(App.location.lat, App.location.lon)) return;
 
         const user = [App.location.lat, App.location.lon];
         const kaaba = [KAABA.lat, KAABA.lon];
@@ -730,45 +821,59 @@
 
   /* ============================ Prayer times =========================== */
   const Prayers = {
-    load(lat, lon) {
+    async load(lat, lon) {
       try {
+        const grid = $("#prayerGrid");
         if (!isOnline()) {
-          const grid = $("#prayerGrid");
           if (grid) grid.innerHTML = '<div class="prayer-note"><i class="fa-solid fa-wifi-slash" aria-hidden="true"></i> Offline — prayer times unavailable.</div>';
+          return;
+        }
+        if (!isValidCoords(lat, lon)) {
+          if (grid) grid.innerHTML = '<div class="prayer-note"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Location is unavailable — prayer times cannot be computed.</div>';
           return;
         }
         const today = new Date();
         const date = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 
-        fetch(`https://api.aladhan.com/v1/timings/${date}?latitude=${lat}&longitude=${lon}&method=${ALADHAN_METHOD}`)
-          .then((res) => (res.ok ? res.json() : Promise.reject(new Error("Prayer API failed"))))
-          .then((data) => {
-            if (!data || data.code !== 200 || !data.data || !data.data.timings) {
-              throw new Error("Prayer API error");
-            }
-            const t = data.data.timings;
-            const mapping = ["Fajr", "Sunrise", "Dhuhr", "Asr", "Maghrib", "Isha"];
-            mapping.forEach((name) => {
-              const el = $(`.prayer-time[data-prayer="${name}"]`);
-              if (el && t[name]) el.textContent = String(t[name]).slice(0, 5);
-            });
-            const prayerDate = $("#prayerDate");
-            if (prayerDate) {
-              prayerDate.textContent = new Date().toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
-            }
-            App.state.prayersLoaded = true;
-            this.highlightNext(t);
-          })
-          .catch(() => {
-            const grid = $("#prayerGrid");
-            if (grid) grid.innerHTML = '<div class="prayer-note"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Prayer times could not be loaded. Check your connection and refresh.</div>';
-            Toast.show("Prayer times failed to load", "error");
-          });
-      } catch (e) { /* non-fatal */ }
+        const result = await fetchJSON(
+          `https://api.aladhan.com/v1/timings/${date}?latitude=${lat}&longitude=${lon}&method=${ALADHAN_METHOD}`,
+          { timeout: 12000 }
+        );
+
+        if (!result.ok || !isPlainObject(result.data)) {
+          throw new Error("Prayer API failed");
+        }
+
+        const data = result.data;
+        const timings = isPlainObject(prop(prop(data, "data"), "timings")) ? prop(prop(data, "data"), "timings") : null;
+
+        if (data.code !== 200 || !isPlainObject(timings)) {
+          throw new Error("Prayer API error");
+        }
+
+        const t = timings;
+        const mapping = ["Fajr", "Sunrise", "Dhuhr", "Asr", "Maghrib", "Isha"];
+        mapping.forEach((name) => {
+          const el = $(`.prayer-time[data-prayer="${name}"]`);
+          const val = prop(t, name);
+          if (el && typeof val === "string") el.textContent = val.slice(0, 5);
+        });
+        const prayerDate = $("#prayerDate");
+        if (prayerDate) {
+          prayerDate.textContent = new Date().toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+        }
+        App.state.prayersLoaded = true;
+        this.highlightNext(t);
+      } catch (e) {
+        const grid = $("#prayerGrid");
+        if (grid) grid.innerHTML = '<div class="prayer-note"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Prayer times could not be loaded. Check your connection and refresh.</div>';
+        Toast.show("Prayer times failed to load", "error");
+      }
     },
 
     highlightNext(timings) {
       try {
+        if (!isPlainObject(timings)) return;
         const order = ["Fajr", "Sunrise", "Dhuhr", "Asr", "Maghrib", "Isha"];
         const now = new Date();
         const nowMin = now.getHours() * 60 + now.getMinutes();
@@ -777,8 +882,8 @@
         let endOfDay = null;
 
         for (const name of order) {
-          if (!timings[name]) continue;
-          const parts = String(timings[name]).split(":").map(Number);
+          if (!prop(timings, name)) continue;
+          const parts = String(prop(timings, name)).split(":").map(Number);
           if (parts.length < 2) continue;
           const mins = parts[0] * 60 + parts[1];
           if (mins > nowMin && mins < nextMin) { next = name; nextMin = mins; }
@@ -793,7 +898,7 @@
           nextMin = 24 * 60; // tomorrow's Fajr
         }
         if (next) {
-          const timeStr = timings[next] ? String(timings[next]).slice(0, 5) : "--:--";
+          const timeStr = prop(timings, next) ? String(prop(timings, next)).slice(0, 5) : "--:--";
           if (nextMin < 24 * 60) {
             const target = $(`.prayer-time[data-prayer="${next}"]`);
             if (target && target.closest) target.closest(".prayer-item").classList.add("prayer-item--next");
@@ -861,7 +966,10 @@
 
   /* ======================== Copy coordinates ========================== */
   const copyCoordinates = async () => {
-    if (!App.location) { Toast.show("No location available to copy", "error"); return; }
+    if (!App.location || !isValidCoords(App.location.lat, App.location.lon)) {
+      Toast.show("No location available to copy", "error");
+      return;
+    }
     const { lat, lon } = App.location;
     const text = `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
     try {
@@ -932,7 +1040,9 @@
         // Give browser a tick to render map tiles
         setTimeout(() => {
           try {
-            if (MapModule.map) MapModule.map.invalidateSize();
+            if (MapModule.map && typeof MapModule.map.invalidateSize === "function") {
+              MapModule.map.invalidateSize();
+            }
           } catch (e) { /* non-fatal */ }
         }, 600);
       });
