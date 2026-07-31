@@ -1,0 +1,847 @@
+/* =====================================================================
+   Qibla Direction — Premium Islamic Compass
+   style.css — Glassmorphism UI, Dark & Light themes, Green & Gold
+   ===================================================================== */
+
+/* ---------------------------- Variables ---------------------------- */
+:root {
+  --font-ui: 'Poppins', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-arabic: 'Amiri', 'Times New Roman', serif;
+
+  --green: #0ea371;
+  --green-2: #059669;
+  --green-deep: #065f46;
+  --green-deep-2: #064e3b;
+  --gold: #d4af37;
+  --gold-bright: #f0c24b;
+  --gold-soft: #f6e2a0;
+  --white: #ffffff;
+
+  --radius: 22px;
+  --radius-sm: 12px;
+  --ease: cubic-bezier(.22, .61, .36, 1);
+  --speed: .45s;
+}
+
+/* Dark theme (default) */
+html[data-theme="dark"] {
+  --bg: #060d16;
+  --bg-2: #0a1a28;
+  --card-bg: rgba(255, 255, 255, .06);
+  --card-border: rgba(255, 255, 255, .12);
+  --card-highlight: rgba(255, 255, 255, .09);
+  --text: #e9f4f0;
+  --text-2: #b9ccc6;
+  --muted: #7d9991;
+  --shadow: rgba(0, 0, 0, .5);
+  --tick: rgba(255, 255, 255, .28);
+  --tick-mid: rgba(255, 255, 255, .5);
+  --dial-bg: radial-gradient(circle at 32% 28%, #123a5c 0%, #0a2037 45%, #061527 100%);
+  --dial-ring: rgba(212, 175, 55, .55);
+  --chip-bg: rgba(255, 255, 255, .06);
+  --input-range-track: rgba(255, 255, 255, .18);
+}
+
+/* Light theme */
+html[data-theme="light"] {
+  --bg: #eef4f1;
+  --bg-2: #ffffff;
+  --card-bg: rgba(255, 255, 255, .6);
+  --card-border: rgba(6, 78, 59, .14);
+  --card-highlight: rgba(255, 255, 255, .9);
+  --text: #0b2b22;
+  --text-2: #31574c;
+  --muted: #5f7d73;
+  --shadow: rgba(13, 60, 50, .16);
+  --tick: rgba(6, 78, 59, .3);
+  --tick-mid: rgba(6, 78, 59, .5);
+  --dial-bg: radial-gradient(circle at 32% 28%, #fdfbf4 0%, #eef6ef 45%, #dfe9e3 100%);
+  --dial-ring: rgba(212, 175, 55, .7);
+  --chip-bg: rgba(6, 78, 59, .06);
+  --input-range-track: rgba(6, 78, 59, .25);
+}
+
+/* ----------------------------- Reset ------------------------------- */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+[hidden] { display: none !important; }
+
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+
+body {
+  font-family: var(--font-ui);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  transition: background var(--speed) var(--ease), color var(--speed) var(--ease);
+}
+
+img, svg { max-width: 100%; display: block; }
+button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+input { font-family: inherit; }
+
+:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* ------------------------- Ambient background ----------------------- */
+.bg {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  overflow: hidden;
+  background:
+    radial-gradient(1200px 700px at 85% -10%, rgba(14, 163, 113, .18), transparent 60%),
+    radial-gradient(1000px 600px at -10% 110%, rgba(212, 175, 55, .14), transparent 55%),
+    var(--bg);
+}
+
+.bg-glow {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: .5;
+  animation: drift 22s ease-in-out infinite alternate;
+}
+.bg-glow--1 { width: 420px; height: 420px; top: 10%; left: -120px; background: rgba(14, 163, 113, .4); }
+.bg-glow--2 { width: 380px; height: 380px; bottom: 8%; right: -120px; background: rgba(212, 175, 55, .35); animation-delay: -11s; }
+
+/* Subtle Islamic star lattice */
+.bg-pattern {
+  position: absolute;
+  inset: 0;
+  opacity: .5;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cg fill='none' stroke='%230ea371' stroke-opacity='0.16' stroke-width='1'%3E%3Cpath d='M60 6l14 27 30-9-9 30 27 14-27 14 9 30-30-9-14 27-14-27-30 9 9-30-27-14 27-14-9-30 30 9z'/%3E%3Cpath d='M60 40l12 22 25 6-18 18 4 25-23-11-23 11 4-25-18-18 25-6z'/%3E%3Ccircle cx='60' cy='60' r='6'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+@keyframes drift {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to   { transform: translate3d(60px, 30px, 0) scale(1.12); }
+}
+
+/* ------------------------------ Glass ------------------------------ */
+.glass {
+  background: var(--card-bg);
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
+  backdrop-filter: blur(22px) saturate(150%);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  box-shadow: 0 18px 50px var(--shadow);
+  transition: background var(--speed) var(--ease), border-color var(--speed) var(--ease);
+}
+
+/* ------------------------------ Header ------------------------------ */
+.site-header {
+  position: sticky;
+  top: 12px;
+  z-index: 50;
+  margin: 12px auto 0;
+  width: min(1180px, calc(100% - 24px));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  border-radius: 20px;
+  animation: fadeDown .8s var(--ease) both;
+}
+
+.brand { display: flex; align-items: center; gap: 14px; }
+
+.brand-icon {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  font-size: 22px;
+  color: var(--gold-soft);
+  background: linear-gradient(135deg, var(--green-deep), var(--green-2));
+  box-shadow: 0 8px 24px rgba(6, 78, 59, .5), inset 0 0 0 1px rgba(246, 226, 160, .25);
+}
+
+.brand-text h1 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: .4px;
+}
+.brand-text h1 span { color: var(--gold); }
+.brand-arabic { font-family: var(--font-arabic); font-size: 1.05rem; color: var(--muted); line-height: 1.2; }
+
+.header-actions { display: flex; gap: 10px; }
+
+/* ------------------------------ Buttons ----------------------------- */
+.icon-btn {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 17px;
+  color: var(--text-2);
+  background: var(--chip-bg);
+  border: 1px solid var(--card-border);
+  transition: transform .25s var(--ease), background .25s, color .25s, box-shadow .25s;
+}
+.icon-btn:hover {
+  color: var(--gold-bright);
+  background: var(--card-highlight);
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 8px 20px var(--shadow);
+}
+.icon-btn:active { transform: translateY(0) scale(.95); }
+.icon-btn--small { width: 38px; height: 38px; font-size: 15px; }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 12px;
+  font-size: .9rem;
+  font-weight: 600;
+  transition: transform .25s var(--ease), box-shadow .25s, background .25s;
+}
+.btn:hover { transform: translateY(-2px); }
+.btn:active { transform: translateY(0) scale(.97); }
+.btn--ghost {
+  color: var(--text-2);
+  background: var(--chip-bg);
+  border: 1px solid var(--card-border);
+}
+.btn--ghost:hover { color: var(--gold-bright); background: var(--card-highlight); box-shadow: 0 8px 20px var(--shadow); }
+
+.btn.is-spinning i { animation: spin 1s linear infinite; }
+
+/* ------------------------------ Layout ------------------------------ */
+.layout {
+  width: min(1180px, calc(100% - 24px));
+  margin: 24px auto 48px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+}
+
+@media (min-width: 1024px) {
+  .layout { grid-template-columns: 460px 1fr; align-items: start; }
+  .compass-card, .qibla-card { grid-column: 1; }
+  .location-card { grid-column: 2; grid-row: 1; }
+  .map-card { grid-column: 2; grid-row: 2; }
+  .prayer-card { grid-column: 2; grid-row: 3; }
+}
+
+.card {
+  padding: 20px;
+  animation: fadeUp .7s var(--ease) both;
+}
+.card:nth-of-type(2) { animation-delay: .05s; }
+.card:nth-of-type(3) { animation-delay: .1s; }
+.card:nth-of-type(4) { animation-delay: .15s; }
+.card:nth-of-type(5) { animation-delay: .2s; }
+
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.card-head h2 {
+  font-size: 1.02rem;
+  font-weight: 600;
+  letter-spacing: .3px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.card-head h2 i { color: var(--gold); }
+
+/* ------------------------------ Badges ------------------------------ */
+.badge {
+  font-size: .72rem;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.badge--neutral { background: var(--chip-bg); color: var(--muted); border: 1px solid var(--card-border); }
+.badge--ok { background: rgba(14, 163, 113, .18); color: var(--green-2); }
+.badge--warn { background: rgba(212, 175, 55, .2); color: var(--gold); }
+.badge--gold { background: linear-gradient(120deg, rgba(212, 175, 55, .3), rgba(212, 175, 55, .15)); color: var(--gold); }
+
+/* --------------------------- Status banner -------------------------- */
+.status-banner {
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  font-size: .88rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  animation: fadeDown .5s var(--ease) both;
+}
+.status-banner--warn { background: rgba(212, 175, 55, .18); color: var(--gold); border: 1px solid rgba(212, 175, 55, .35); }
+.status-banner--danger { background: rgba(220, 60, 60, .16); color: #ff8a8a; border: 1px solid rgba(220, 60, 60, .35); }
+.status-banner--danger strong { color: var(--text); font-weight: 700; }
+.banner-dismiss {
+  margin-left: auto;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 1.15rem;
+  line-height: 1;
+  color: inherit;
+  background: rgba(255, 255, 255, .12);
+  border: 1px solid currentColor;
+  transition: transform .2s var(--ease), background .2s;
+}
+.banner-dismiss:hover { transform: scale(1.12); background: rgba(255, 255, 255, .22); }
+
+/* --------------------------- Location card --------------------------- */
+.loc-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+.loc-cell {
+  background: var(--chip-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.loc-cell--wide { grid-column: span 2; }
+.loc-label { font-size: .68rem; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+.loc-value { font-size: .95rem; font-weight: 600; word-break: break-word; }
+.loc-value .fa-code { color: var(--gold); }
+
+.card-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+
+/* ------------------------------ Error card ---------------------------- */
+.error-card {
+  margin-top: 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px;
+  border-color: rgba(229, 83, 75, .4);
+  background: rgba(229, 83, 75, .08);
+  animation: fadeUp .5s var(--ease) both;
+}
+.error-icon {
+  flex: none;
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  font-size: 18px;
+  color: #ff8a84;
+  background: rgba(229, 83, 75, .18);
+}
+.error-body h3 { font-size: .95rem; margin-bottom: 4px; color: var(--text); }
+.error-body p { font-size: .82rem; color: var(--text-2); line-height: 1.5; margin-bottom: 10px; }
+
+/* ------------------------------ Compass ------------------------------ */
+.compass-shell { display: flex; justify-content: center; padding: 8px 0 4px; }
+
+.compass {
+  --dial-r: 132px;
+  position: relative;
+  width: calc(var(--dial-r) * 2);
+  height: calc(var(--dial-r) * 2);
+  border-radius: 50%;
+}
+.compass--large {
+  --dial-r: min(38vw, 240px);
+}
+
+.compass-dial {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--dial-bg);
+  box-shadow:
+    inset 0 0 40px rgba(0, 0, 0, .45),
+    inset 0 0 0 3px var(--dial-ring),
+    inset 0 0 0 8px rgba(255, 255, 255, .05),
+    inset 0 0 0 10px var(--card-border),
+    0 20px 60px var(--shadow);
+  transition: background var(--speed) var(--ease);
+  transform: rotate(var(--dial-rot, 0deg));
+  will-change: transform;
+}
+
+/* Outer tick ring */
+.compass-dial::after {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border-radius: 50%;
+  border: 1px dashed var(--dial-ring);
+  opacity: .5;
+}
+
+.compass-halo {
+  position: absolute;
+  inset: -14px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(14, 163, 113, .35), transparent 70%);
+  animation: pulseHalo 3.5s ease-in-out infinite;
+  pointer-events: none;
+}
+.compass-halo::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid var(--gold);
+  opacity: .35;
+  animation: pulseRing 3.5s ease-in-out infinite;
+}
+
+/* Ticks (spokes) + labels injected by JS */
+.tick {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 1.5px;
+  height: calc(var(--dial-r) * 0.9);
+  background: var(--tick);
+  transform: translate(-50%, -100%) rotate(var(--d));
+  transform-origin: 50% 100%;
+  border-radius: 2px;
+}
+.tick--mid { width: 2px; height: calc(var(--dial-r) * 0.95); background: var(--tick-mid); }
+.tick--major { width: 2.5px; height: calc(var(--dial-r) * 0.98); background: var(--gold); box-shadow: 0 0 8px rgba(212, 175, 55, .6); }
+
+.compass-num, .compass-cardinal {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  margin: -15px;
+  font-weight: 700;
+  transform: rotate(var(--r)) translateY(calc(-1 * var(--radius))) rotate(calc(-1 * var(--r)));
+  transform-origin: center;
+}
+.compass-num {
+  font-size: .7rem;
+  color: var(--muted);
+  --radius: calc(var(--dial-r) * .68);
+}
+.compass-cardinal {
+  font-size: 1.15rem;
+  letter-spacing: .5px;
+  color: var(--gold);
+  text-shadow: 0 0 12px rgba(212, 175, 55, .5);
+  --radius: calc(var(--dial-r) * .82);
+}
+.compass-cardinal[data-letter="N"] {
+  color: var(--gold-bright);
+  font-size: 1.4rem;
+}
+
+/* Needle */
+.compass-needle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 34px;
+  height: calc(var(--dial-r) * 1.52);
+  margin: calc(var(--dial-r) * -0.76) 0 0 -17px;
+  transform: rotate(var(--needle-rot, 0deg));
+  transform-origin: 50% 50%;
+  transition: transform .16s linear;
+  will-change: transform;
+  z-index: 3;
+}
+
+.needle-body {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, var(--gold-bright) 0%, var(--gold) 30%, var(--green-2) 72%, var(--green-deep) 100%);
+  clip-path: polygon(50% 0%, 68% 20%, 62% 50%, 50% 100%, 38% 50%, 32% 20%);
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, .45));
+}
+.needle-body::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 3px;
+  height: 100%;
+  background: rgba(255, 255, 255, .5);
+  transform: translateX(-50%);
+  clip-path: polygon(50% 0%, 68% 20%, 62% 50%, 50% 100%, 38% 50%, 32% 20%);
+}
+
+.needle-hub {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 52px;
+  height: 52px;
+  margin: -26px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 20px;
+  color: var(--gold-soft);
+  background: radial-gradient(circle at 35% 30%, #0d9468, var(--green-deep-2));
+  border: 2px solid var(--gold);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, .5), 0 0 0 4px rgba(212, 175, 55, .2);
+}
+
+/* Readouts */
+.compass-readouts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 14px;
+}
+.readout {
+  background: var(--chip-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  text-align: center;
+}
+.readout-label { display: block; font-size: .66rem; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); margin-bottom: 4px; }
+.readout-value { font-size: 1.5rem; font-weight: 700; background: linear-gradient(120deg, var(--gold), var(--gold-bright)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+
+.compass-status {
+  margin-top: 14px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-size: .82rem;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  line-height: 1.45;
+}
+.compass-status--cal { background: rgba(14, 163, 113, .12); color: var(--green-2); border: 1px solid rgba(14, 163, 113, .3); }
+.compass-status--warn { background: rgba(212, 175, 55, .15); color: var(--gold); border: 1px solid rgba(212, 175, 55, .35); }
+.compass-status--err { background: rgba(220, 60, 60, .14); color: #ff8a8a; border: 1px solid rgba(220, 60, 60, .35); }
+.compass-status--ok { background: rgba(14, 163, 113, .14); color: var(--green-2); border: 1px solid rgba(14, 163, 113, .3); }
+
+/* Manual heading fallback */
+.manual-panel {
+  margin-top: 14px;
+  padding: 14px;
+  border-radius: var(--radius-sm);
+  background: var(--chip-bg);
+  border: 1px solid var(--card-border);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.manual-label { font-size: .8rem; color: var(--muted); flex: 1; }
+.manual-val { font-weight: 700; color: var(--gold); min-width: 44px; text-align: right; }
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 110px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--input-range-track);
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--gold-bright), var(--gold));
+  border: 2px solid #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .35);
+  cursor: pointer;
+}
+input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--gold-bright), var(--gold));
+  border: 2px solid #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .35);
+  cursor: pointer;
+}
+
+/* ------------------------------ Qibla card --------------------------- */
+.qibla-stats { display: grid; gap: 12px; }
+
+.stat {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  border-radius: var(--radius-sm);
+  background: var(--chip-bg);
+  border: 1px solid var(--card-border);
+}
+.stat-icon {
+  width: 46px;
+  height: 46px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  font-size: 19px;
+  color: var(--gold);
+  background: linear-gradient(135deg, rgba(212, 175, 55, .25), rgba(14, 163, 113, .2));
+}
+.stat-label { display: block; font-size: .7rem; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+.stat-value { font-size: 1.15rem; font-weight: 700; }
+
+/* -------------------------------- Map -------------------------------- */
+.map {
+  height: 340px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--card-border);
+  z-index: 1;
+}
+.map-card { padding-bottom: 8px; }
+
+.leaflet-container { font-family: var(--font-ui); background: #dfe9e3; }
+
+.map-marker {
+  display: grid;
+  place-items: center;
+}
+.map-marker--user {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #1e88e5;
+  border: 3px solid #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .4);
+}
+.map-marker--kaaba {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  font-size: 17px;
+  color: var(--gold-soft);
+  background: linear-gradient(135deg, var(--green-deep), var(--green-2));
+  border: 2px solid var(--gold);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .45);
+  animation: kaabaBounce 2.6s ease-in-out infinite;
+}
+
+@keyframes kaabaBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+/* ----------------------------- Prayer times -------------------------- */
+.next-prayer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(120deg, rgba(14, 163, 113, .2), rgba(212, 175, 55, .16));
+  border: 1px solid rgba(212, 175, 55, .4);
+}
+.next-label { font-size: .68rem; text-transform: uppercase; letter-spacing: 1.4px; color: var(--muted); }
+.next-prayer strong { color: var(--gold-bright); font-size: 1.02rem; }
+.next-prayer #nextPrayerTime { margin-left: auto; font-weight: 700; font-size: 1.1rem; }
+
+.prayer-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+@media (min-width: 640px) { .prayer-grid { grid-template-columns: repeat(3, 1fr); } }
+
+.prayer-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--chip-bg);
+  border: 1px solid var(--card-border);
+  transition: transform .25s var(--ease), background .25s, border-color .25s;
+}
+.prayer-item:hover { transform: translateY(-2px); border-color: rgba(212, 175, 55, .5); }
+.prayer-name { font-size: .8rem; font-weight: 600; color: var(--text-2); display: flex; align-items: center; gap: 7px; }
+.prayer-name i { color: var(--gold); width: 14px; text-align: center; }
+.prayer-time { font-weight: 700; font-size: .95rem; }
+
+.prayer-item--next {
+  background: linear-gradient(120deg, rgba(212, 175, 55, .25), rgba(212, 175, 55, .08));
+  border-color: var(--gold);
+}
+.prayer-item--next .prayer-time { color: var(--gold-bright); }
+
+.prayer-note { margin-top: 14px; font-size: .74rem; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+
+/* ------------------------------ Footer ------------------------------- */
+.site-footer {
+  text-align: center;
+  padding: 28px 16px 44px;
+  color: var(--muted);
+  font-size: .82rem;
+  display: grid;
+  gap: 8px;
+}
+.site-footer strong { color: var(--gold); font-weight: 600; }
+.footer-arabic { font-family: var(--font-arabic); font-size: 1rem; color: var(--text-2); }
+
+/* ------------------------------ Modal -------------------------------- */
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.modal[hidden] { display: none; }
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(4, 12, 20, .7);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  animation: fadeIn .35s var(--ease) both;
+}
+.modal-content {
+  position: relative;
+  padding: 32px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  animation: pop .45s var(--ease) both;
+  max-width: 620px;
+  width: 100%;
+}
+.modal-close { position: absolute; top: 14px; right: 14px; }
+.modal-content .compass-readouts { width: 100%; }
+
+/* ------------------------------ Toasts ------------------------------- */
+.toast-container {
+  position: fixed;
+  top: 84px;
+  right: 16px;
+  z-index: 120;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: min(340px, calc(100vw - 32px));
+  pointer-events: none;
+}
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 16px;
+  border-radius: 14px;
+  font-size: .86rem;
+  font-weight: 500;
+  color: var(--text);
+  background: var(--card-bg);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+  border: 1px solid var(--card-border);
+  box-shadow: 0 12px 34px var(--shadow);
+  animation: toastIn .45s var(--ease) both;
+}
+.toast--success { border-left: 4px solid var(--green-2); }
+.toast--error { border-left: 4px solid #e5534b; }
+.toast--info { border-left: 4px solid var(--gold); }
+.toast i { font-size: 1.1rem; }
+.toast--success i { color: var(--green-2); }
+.toast--error i { color: #ff6b64; }
+.toast--info i { color: var(--gold); }
+.toast--out { animation: toastOut .4s var(--ease) both; }
+
+/* ------------------------------ Preloader ----------------------------- */
+#preloader {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  background: var(--bg);
+  transition: opacity .6s var(--ease), visibility .6s;
+}
+#preloader.is-hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+
+.preloader-ring {
+  width: 92px;
+  height: 92px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 32px;
+  color: var(--gold-soft);
+  background: linear-gradient(135deg, var(--green-deep), var(--green-2));
+  box-shadow: 0 0 0 2px var(--gold), 0 0 40px rgba(212, 175, 55, .45);
+  animation: preloadSpin 1.8s ease-in-out infinite;
+}
+.preloader-text { font-size: .9rem; color: var(--muted); letter-spacing: .5px; animation: fadeIn 1.2s ease-in infinite alternate; }
+
+@keyframes preloadSpin {
+  0%   { transform: rotateY(0deg); }
+  100% { transform: rotateY(360deg); }
+}
+
+/* ------------------------------ Animations ---------------------------- */
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fadeDown { from { opacity: 0; transform: translateY(-18px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes pop { from { opacity: 0; transform: scale(.85); } to { opacity: 1; transform: scale(1); } }
+@keyframes toastIn { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes toastOut { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(40px); } }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes pulseHalo { 0%, 100% { opacity: .7; transform: scale(1); } 50% { opacity: 1; transform: scale(1.03); } }
+@keyframes pulseRing { 0%, 100% { opacity: .3; transform: scale(1); } 50% { opacity: .7; transform: scale(1.045); } }
+
+/* ------------------------------ Reduced motion ------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+  html { scroll-behavior: auto; }
+}
+
+/* ------------------------------ Mobile tweaks ------------------------- */
+@media (max-width: 480px) {
+  .layout { margin-top: 16px; gap: 16px; }
+  .card { padding: 16px; }
+  .compass { --dial-r: 118px; }
+  .toast-container { top: 74px; right: 12px; left: 12px; }
+}
+
+@media (max-height: 480px) and (orientation: landscape) {
+  .compass--large { --dial-r: 26vh; }
+}

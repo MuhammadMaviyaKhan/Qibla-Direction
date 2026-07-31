@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="description" content="A premium Qibla Direction compass with prayer times, interactive map and accurate Kaaba bearing — powered by your device compass." />
+  <meta name="theme-color" content="#065f46" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Qibla Direction — Premium Islamic Compass</title>
+
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%23065f46'/%3E%3Ctext x='32' y='44' font-size='34' text-anchor='middle'%3E%F0%9F%95%8C%3C/text%3E%3C/svg%3E" />
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Amiri:wght@400;700&display=swap" rel="stylesheet" />
+
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- Preloader -->
+  <div id="preloader" role="status" aria-label="Loading Qibla Direction">
+    <div class="preloader-ring">
+      <i class="fa-solid fa-kaaba" aria-hidden="true"></i>
+    </div>
+    <p class="preloader-text">Seeking the direction of the Holy Kaaba</p>
+  </div>
+
+  <!-- Ambient background -->
+  <div class="bg" aria-hidden="true">
+    <div class="bg-glow bg-glow--1"></div>
+    <div class="bg-glow bg-glow--2"></div>
+    <div class="bg-pattern"></div>
+  </div>
+
+  <!-- ===== Header ===== -->
+  <header class="site-header glass" role="banner">
+    <div class="brand">
+      <div class="brand-icon"><i class="fa-solid fa-kaaba" aria-hidden="true"></i></div>
+      <div class="brand-text">
+        <h1>Qibla <span>Direction</span></h1>
+        <p lang="ar" dir="rtl" class="brand-arabic">اتجاه القبلة</p>
+      </div>
+    </div>
+    <nav class="header-actions" aria-label="Application controls">
+      <button class="icon-btn" id="refreshBtn" type="button" title="Refresh location" aria-label="Refresh current location">
+        <i class="fa-solid fa-location-crosshairs" aria-hidden="true"></i>
+      </button>
+      <button class="icon-btn" id="themeBtn" type="button" title="Toggle theme" aria-label="Toggle dark or light mode">
+        <i class="fa-solid fa-sun" aria-hidden="true"></i>
+      </button>
+    </nav>
+  </header>
+
+  <main id="app" class="layout">
+
+    <!-- ===== Status banner (offline / compass) ===== -->
+    <div id="statusBanner" class="status-banner" hidden></div>
+
+    <!-- ===== Location card ===== -->
+    <section class="card glass location-card" aria-labelledby="locationTitle">
+      <div class="card-head">
+        <h2 id="locationTitle"><i class="fa-solid fa-map-pin" aria-hidden="true"></i> Your Location</h2>
+        <span id="locStatus" class="badge badge--neutral"><i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i> Locating…</span>
+      </div>
+
+      <div class="loc-grid">
+        <div class="loc-cell">
+          <span class="loc-label">Latitude</span>
+          <span class="loc-value" id="latValue">--</span>
+        </div>
+        <div class="loc-cell">
+          <span class="loc-label">Longitude</span>
+          <span class="loc-value" id="lonValue">--</span>
+        </div>
+        <div class="loc-cell loc-cell--wide">
+          <span class="loc-label">Place</span>
+          <span class="loc-value" id="placeValue">Waiting for GPS…</span>
+        </div>
+        <div class="loc-cell">
+          <span class="loc-label">Accuracy</span>
+          <span class="loc-value" id="accValue">--</span>
+        </div>
+        <div class="loc-cell">
+          <span class="loc-label">City</span>
+          <span class="loc-value" id="cityValue">--</span>
+        </div>
+        <div class="loc-cell">
+          <span class="loc-label">Country</span>
+          <span class="loc-value" id="countryValue">--</span>
+        </div>
+      </div>
+
+      <div class="card-actions">
+        <button class="btn btn--ghost" id="copyBtn" type="button" aria-label="Copy coordinates to clipboard">
+          <i class="fa-solid fa-copy" aria-hidden="true"></i> Copy Coordinates
+        </button>
+        <button class="btn btn--ghost" id="locBtn" type="button" aria-label="Locate me again">
+          <i class="fa-solid fa-rotate" aria-hidden="true"></i> Refresh
+        </button>
+      </div>
+
+      <div id="locationError" aria-live="polite"></div>
+    </section>
+
+    <!-- ===== Compass card ===== -->
+    <section class="card glass compass-card" aria-labelledby="compassTitle">
+      <div class="card-head">
+        <h2 id="compassTitle"><i class="fa-solid fa-compass" aria-hidden="true"></i> Qibla Compass</h2>
+        <button class="icon-btn icon-btn--small" id="fullscreenBtn" type="button" title="Fullscreen compass" aria-label="Open compass in fullscreen">
+          <i class="fa-solid fa-expand" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <div class="compass-shell">
+        <div class="compass" id="mainCompass" role="img" aria-label="Animated compass pointing towards the Qibla">
+          <div class="compass-dial" id="mainDial" aria-hidden="true"></div>
+          <div class="compass-halo" aria-hidden="true"></div>
+          <div class="compass-needle" id="mainNeedle" aria-hidden="true">
+            <div class="needle-body"></div>
+            <div class="needle-hub"><i class="fa-solid fa-kaaba" aria-hidden="true"></i></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="compass-readouts">
+        <div class="readout">
+          <span class="readout-label">Qibla Angle</span>
+          <span class="readout-value" id="qiblaAngle">--°</span>
+        </div>
+        <div class="readout">
+          <span class="readout-label">Device Heading</span>
+          <span class="readout-value" id="deviceHeading">--°</span>
+        </div>
+      </div>
+
+      <div id="compassStatus" class="compass-status compass-status--cal" role="status">
+        <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+        <span>Calibrating compass — move your device in a figure-eight motion.</span>
+      </div>
+
+      <!-- Fallback manual heading -->
+      <div id="manualPanel" class="manual-panel" hidden>
+        <label class="manual-label" for="headingSlider">Manual heading (compass unavailable)</label>
+        <input type="range" id="headingSlider" min="0" max="359" value="0" step="1" aria-label="Manual device heading" />
+        <span class="manual-val" id="headingSliderVal">0°</span>
+      </div>
+    </section>
+
+    <!-- ===== Qibla info card ===== -->
+    <section class="card glass qibla-card" aria-labelledby="qiblaTitle">
+      <div class="card-head">
+        <h2 id="qiblaTitle"><i class="fa-solid fa-mosque" aria-hidden="true"></i> Direction to the Kaaba</h2>
+      </div>
+      <div class="qibla-stats">
+        <div class="stat">
+          <span class="stat-icon"><i class="fa-solid fa-location-arrow" aria-hidden="true"></i></span>
+          <div>
+            <span class="stat-label">Bearing</span>
+            <strong class="stat-value" id="bearingValue">--°</strong>
+          </div>
+        </div>
+        <div class="stat">
+          <span class="stat-icon"><i class="fa-solid fa-route" aria-hidden="true"></i></span>
+          <div>
+            <span class="stat-label">Distance to Kaaba</span>
+            <strong class="stat-value" id="distanceValue">--</strong>
+          </div>
+        </div>
+        <div class="stat stat--wide">
+          <span class="stat-icon"><i class="fa-solid fa-person" aria-hidden="true"></i></span>
+          <div>
+            <span class="stat-label">Face this direction</span>
+            <strong class="stat-value" id="faceDirection">--</strong>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Map card ===== -->
+    <section class="card glass map-card" aria-labelledby="mapTitle">
+      <div class="card-head">
+        <h2 id="mapTitle"><i class="fa-solid fa-map" aria-hidden="true"></i> Route to Kaaba</h2>
+      </div>
+      <div id="map" class="map" role="application" aria-label="Interactive map showing your location and the Kaaba"></div>
+    </section>
+
+    <!-- ===== Prayer times card ===== -->
+    <section class="card glass prayer-card" aria-labelledby="prayerTitle">
+      <div class="card-head">
+        <h2 id="prayerTitle"><i class="fa-solid fa-clock" aria-hidden="true"></i> Prayer Times</h2>
+        <span class="badge badge--gold" id="prayerDate">--</span>
+      </div>
+      <div id="nextPrayer" class="next-prayer" hidden>
+        <span class="next-label">Next prayer</span>
+        <strong id="nextPrayerName">--</strong>
+        <span id="nextPrayerTime">--</span>
+      </div>
+      <div class="prayer-grid" id="prayerGrid" role="list" aria-label="Prayer times today">
+        <div class="prayer-item" role="listitem"><span class="prayer-name"><i class="fa-solid fa-star-and-crescent" aria-hidden="true"></i> Fajr</span><span class="prayer-time" data-prayer="Fajr">--:--</span></div>
+        <div class="prayer-item" role="listitem"><span class="prayer-name"><i class="fa-solid fa-sun" aria-hidden="true"></i> Sunrise</span><span class="prayer-time" data-prayer="Sunrise">--:--</span></div>
+        <div class="prayer-item" role="listitem"><span class="prayer-name"><i class="fa-solid fa-sun" aria-hidden="true"></i> Dhuhr</span><span class="prayer-time" data-prayer="Dhuhr">--:--</span></div>
+        <div class="prayer-item" role="listitem"><span class="prayer-name"><i class="fa-solid fa-cloud-sun" aria-hidden="true"></i> Asr</span><span class="prayer-time" data-prayer="Asr">--:--</span></div>
+        <div class="prayer-item" role="listitem"><span class="prayer-name"><i class="fa-solid fa-cloud-sun-rain" aria-hidden="true"></i> Maghrib</span><span class="prayer-time" data-prayer="Maghrib">--:--</span></div>
+        <div class="prayer-item" role="listitem"><span class="prayer-name"><i class="fa-solid fa-moon" aria-hidden="true"></i> Isha</span><span class="prayer-time" data-prayer="Isha">--:--</span></div>
+      </div>
+      <p class="prayer-note"><i class="fa-solid fa-info-circle" aria-hidden="true"></i> Times shown in the local timezone of your location.</p>
+    </section>
+
+  </main>
+
+  <!-- ===== Footer ===== -->
+  <footer class="site-footer" role="contentinfo">
+    <p>Powered by <strong>AlAdhan</strong> &amp; <strong>OpenStreetMap</strong></p>
+    <p lang="ar" dir="rtl" class="footer-arabic">وَمِنْ حَيْثُ خَرَجْتَ فَوَلِّ وَجْهَكَ شَطْرَ الْمَسْجِدِ الْحَرَامِ</p>
+  </footer>
+
+  <!-- ===== Fullscreen compass modal ===== -->
+  <div id="fullscreenModal" class="modal" role="dialog" aria-modal="true" aria-label="Fullscreen Qibla compass" hidden>
+    <div class="modal-backdrop" data-close-modal></div>
+    <div class="modal-content glass">
+      <button class="icon-btn modal-close" id="closeFullscreen" type="button" aria-label="Close fullscreen compass">
+        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+      </button>
+      <div class="compass compass--large" id="fullscreenCompass" role="img" aria-label="Large animated compass pointing towards the Qibla">
+        <div class="compass-dial" id="fullscreenDial" aria-hidden="true"></div>
+        <div class="compass-halo" aria-hidden="true"></div>
+        <div class="compass-needle" id="fullscreenNeedle" aria-hidden="true">
+          <div class="needle-body"></div>
+          <div class="needle-hub"><i class="fa-solid fa-kaaba" aria-hidden="true"></i></div>
+        </div>
+      </div>
+      <div class="compass-readouts">
+        <div class="readout">
+          <span class="readout-label">Qibla Angle</span>
+          <span class="readout-value" id="fullQiblaAngle">--°</span>
+        </div>
+        <div class="readout">
+          <span class="readout-label">Device Heading</span>
+          <span class="readout-value" id="fullDeviceHeading">--°</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast container -->
+  <div id="toastContainer" class="toast-container" aria-live="polite" aria-atomic="false"></div>
+
+  <!-- Leaflet -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="" defer></script>
+  <script src="script.js" defer></script>
+</body>
+</html>
